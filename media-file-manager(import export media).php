@@ -10,6 +10,7 @@ Plugin Home Page URI: https://github.com/alfi4000/simple-wordpress-plugins
 Requires at least: 5.8
 Tested up to: 6.7.1
 */
+
 // Exit if accessed directly
 if (!defined('ABSPATH')) {
     exit;
@@ -28,6 +29,16 @@ function mm_add_admin_menu() {
     );
 }
 add_action('admin_menu', 'mm_add_admin_menu');
+
+// Enqueue scripts
+function mm_enqueue_scripts($hook) {
+    if ('toplevel_page_media-manager' !== $hook) {
+        return;
+    }
+    wp_enqueue_script('mm-admin-script', plugin_dir_url(__FILE__) . 'mm-admin.js', array('jquery'), null, true);
+    wp_localize_script('mm-admin-script', 'mm_ajax', array('ajax_url' => admin_url('admin-ajax.php')));
+}
+add_action('admin_enqueue_scripts', 'mm_enqueue_scripts');
 
 // Admin page content
 function mm_admin_page() {
@@ -51,7 +62,7 @@ function mm_admin_page() {
 
         <div id="importer" class="tab-content <?php echo $active_tab == 'importer' ? 'tab-content-active' : ''; ?>">
             <h2>Media Importer</h2>
-            <form method="post" enctype="multipart/form-data">
+            <form id="import-form" method="post" enctype="multipart/form-data">
                 <input type="file" name="import_file" accept=".json">
                 <input type="submit" name="list_media" class="button button-primary" value="List Media for Import">
             </form>
@@ -67,7 +78,7 @@ function mm_admin_page() {
         <div id="exporter" class="tab-content <?php echo $active_tab == 'exporter' ? 'tab-content-active' : ''; ?>">
             <h2>Media Exporter</h2>
             <p>Click the button below to export media files information as a JSON file.</p>
-            <form method="post">
+            <form id="export-form" method="post">
                 <input type="submit" name="export_media" class="button button-primary" value="Export Media">
             </form>
             <?php
@@ -96,52 +107,11 @@ function mm_admin_page() {
             <h2>Edit JSON File</h2>
             <form id="edit-form" method="post" enctype="multipart/form-data">
                 <input type="hidden" name="edit_file_path" id="edit_file_path">
-                <textarea name="edit_file_content" id="edit_file_content" rows="10" cols="50"></textarea>
+                <textarea name="edit_file_content" id="edit_file_content" rows="20" cols="80"></textarea>
                 <input type="submit" name="save_edit_file" class="button button-primary" value="Save">
             </form>
         </div>
     </div>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const editButtons = document.querySelectorAll('.edit-button');
-            const popup = document.getElementById('edit-popup');
-            const closeBtn = document.querySelector('.close-btn');
-            const editForm = document.getElementById('edit-form');
-
-            editButtons.forEach(button => {
-                button.addEventListener('click', function() {
-                    const filePath = this.getAttribute('data-file-path');
-                    const fileContent = this.getAttribute('data-file-content');
-                    document.getElementById('edit_file_path').value = filePath;
-                    document.getElementById('edit_file_content').value = fileContent;
-                    popup.style.display = 'block';
-                });
-            });
-
-            closeBtn.addEventListener('click', function() {
-                popup.style.display = 'none';
-            });
-
-            window.addEventListener('click', function(event) {
-                if (event.target == popup) {
-                    popup.style.display = 'none';
-                }
-            });
-
-            editForm.addEventListener('submit', function(event) {
-                event.preventDefault();
-                const formData = new FormData(this);
-                fetch(window.location.href, {
-                    method: 'POST',
-                    body: formData
-                }).then(response => response.text()).then(data => {
-                    document.querySelector('.wrap').innerHTML = data;
-                    popup.style.display = 'none';
-                });
-            });
-        });
-    </script>
 
     <style>
         .nav-tab-wrapper {
@@ -199,9 +169,9 @@ function mm_admin_page() {
             display: none;
             position: fixed;
             z-index: 1;
-            left: 20%; /* Adjusted to move the popup to the right */
+            left: 10%; /* Adjusted to move the popup to the right */
             top: 0;
-            width: 60%; /* Adjusted to fit within the screen */
+            width: 80%; /* Adjusted to fit within the screen */
             height: 100%;
             overflow: auto;
             background-color: rgb(0,0,0);
@@ -209,10 +179,10 @@ function mm_admin_page() {
         }
         .edit-popup-content {
             background-color: #fefefe;
-            margin: 15% auto;
+            margin: 5% auto;
             padding: 20px;
             border: 1px solid #888;
-            width: 80%;
+            width: 90%;
         }
         .close-btn {
             color: #aaa;
@@ -316,17 +286,23 @@ function mi_handle_import_media() {
 }
 
 // Handle editing JSON file
-if (isset($_POST['save_edit_file'])) {
-    $file_path = sanitize_text_field($_POST['edit_file_path']);
-    $file_content = sanitize_textarea_field($_POST['edit_file_content']);
+function mm_handle_save_edit_file() {
+    check_ajax_referer('mm_save_edit_file');
+    if (isset($_POST['edit_file_path']) && isset($_POST['edit_file_content'])) {
+        $file_path = sanitize_text_field($_POST['edit_file_path']);
+        $file_content = sanitize_textarea_field($_POST['edit_file_content']);
 
-    if (file_exists($file_path)) {
-        file_put_contents($file_path, $file_content);
-        echo '<div class="updated"><p>File updated successfully!</p></div>';
+        if (file_exists($file_path)) {
+            file_put_contents($file_path, $file_content);
+            wp_send_json_success('File updated successfully!');
+        } else {
+            wp_send_json_error('File not found.');
+        }
     } else {
-        echo '<div class="error"><p>File not found.</p></div>';
+        wp_send_json_error('Invalid request.');
     }
 }
+add_action('wp_ajax_mm_save_edit_file', 'mm_handle_save_edit_file');
 
 // Helper function to insert an attachment into the media library
 function mi_insert_attachment($file_path, $file_name, $post_date, $original_id) {
@@ -433,10 +409,9 @@ function me_list_json_files() {
     echo '<div class="json-file-list">';
     foreach ($json_files as $file_path) {
         $file_name = basename($file_path);
-        $file_content = file_get_contents($file_path);
         echo '<div class="json-file-item">';
         echo '<span>' . esc_html($file_name) . '</span>';
-        echo '<button class="edit-button" data-file-path="' . esc_attr($file_path) . '" data-file-content="' . esc_attr($file_content) . '">Edit</button>';
+        echo '<button class="edit-button" data-file-path="' . esc_attr($file_path) . '">Edit</button>';
         echo '<form method="post" style="display:inline;">';
         echo '<input type="hidden" name="delete_file" value="' . esc_attr($file_path) . '">';
         echo '<button type="submit" name="delete_json_file">Delete</button>';
@@ -447,12 +422,114 @@ function me_list_json_files() {
 }
 
 // Handle deleting JSON files
-if (isset($_POST['delete_json_file'])) {
-    $file_path = sanitize_text_field($_POST['delete_file']);
-    if (file_exists($file_path)) {
-        unlink($file_path);
-        echo '<div class="updated"><p>File deleted successfully!</p></div>';
+function mm_handle_delete_json_file() {
+    check_ajax_referer('mm_delete_json_file');
+    if (isset($_POST['delete_file'])) {
+        $file_path = sanitize_text_field($_POST['delete_file']);
+        if (file_exists($file_path)) {
+            unlink($file_path);
+            wp_send_json_success('File deleted successfully!');
+        } else {
+            wp_send_json_error('File not found.');
+        }
     } else {
-        echo '<div class="error"><p>File not found.</p></div>';
+        wp_send_json_error('Invalid request.');
     }
 }
+add_action('wp_ajax_mm_delete_json_file', 'mm_handle_delete_json_file');
+
+function mm_handle_load_file_content() {
+    if (isset($_POST['file_path'])) {
+        $file_path = sanitize_text_field($_POST['file_path']);
+        if (file_exists($file_path)) {
+            $file_content = file_get_contents($file_path);
+            wp_send_json_success(array('content' => $file_content));
+        } else {
+            wp_send_json_error(array('error' => 'File not found.'));
+        }
+    } else {
+        wp_send_json_error(array('error' => 'Invalid request.'));
+    }
+}
+add_action('wp_ajax_mm_load_file_content', 'mm_handle_load_file_content');
+
+
+
+
+mm-admin.js:
+jQuery(document).ready(function($){
+    // Show the edit popup with the file content
+    $('.edit-button').click(function() {
+        var filePath = $(this).data('file-path');
+        $('#edit_file_path').val(filePath);
+        
+        $.ajax({
+            url: mm_ajax.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'mm_load_file_content',
+                file_path: filePath
+            },
+            success: function(response) {
+                if (response.success) {
+                    $('#edit_file_content').val(response.data.content);
+                    $('#edit-popup').fadeIn();
+                } else {
+                    alert('Could not load file content: ' + response.data.error);
+                }
+            }
+        });
+    });
+
+    // Save the edited file content
+    $('#edit-form').submit(function(e) {
+        e.preventDefault();
+        var filePath = $('#edit_file_path').val();
+        var fileContent = $('#edit_file_content').val();
+
+        $.ajax({
+            url: mm_ajax.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'mm_save_edit_file',
+                file_path: filePath,
+                file_content: fileContent
+            },
+            success: function(response) {
+                if (response.success) {
+                    alert('File updated successfully!');
+                    $('#edit-popup').fadeOut();
+                } else {
+                    alert('Error: ' + response.data.error);
+                }
+            }
+        });
+    });
+
+    // Close the edit popup
+    $('.close-btn').click(function() {
+        $('#edit-popup').fadeOut();
+    });
+
+    // Handle delete button click
+    $(document).on('click', 'button[name="delete_json_file"]', function(event) {
+        event.preventDefault();
+        var deleteFile = $(this).closest('form').find('input[name="delete_file"]').val();
+
+        $.ajax({
+            url: mm_ajax.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'mm_delete_json_file',
+                delete_file: deleteFile
+            },
+            success: function(response) {
+                if (response.success) {
+                    location.reload();
+                } else {
+                    alert(response.data);
+                }
+            }
+        });
+    });
+});

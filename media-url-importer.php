@@ -1,6 +1,6 @@
 <?php
 /*
-Plugin Name: Media Importer
+Plugin Name: Media URL Importer
 Description: Imports media files with their upload date and time and supports replacing files.
 Version: 1.1.2.3
 Author: alfi4000

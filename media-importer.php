@@ -5,7 +5,7 @@ Description: Imports media files with their upload date and time and supports re
 Version: 1.1.2.3
 Author: alfi4000
 Author URL: https://github.com/alfi4000
-Plugin URL: 
+Plugin URL: https://github.com/alfi4000/simple-wordpress-plugins/blob/main/media-importer.php
 Plugin Home Page URL: https://github.com/alfi4000/simple-wordpress-plugins
 */
 

@@ -4,9 +4,9 @@ Plugin Name: Media URL Importer
 Description: Imports media files with their upload date and time and supports replacing files.
 Version: 1.1.2.3
 Author: alfi4000
-Author URL: https://github.com/alfi4000
-Plugin URL: https://github.com/alfi4000/simple-wordpress-plugins/blob/main/media-url-importer.php
-Plugin Home Page URL: https://github.com/alfi4000/simple-wordpress-plugins
+Author URI: https://github.com/alfi4000
+Plugin URI: https://github.com/alfi4000/simple-wordpress-plugins/blob/main/media-url-importer.php
+Plugin Home Page URI: https://github.com/alfi4000/simple-wordpress-plugins
 */
 
 // Exit if accessed directly

@@ -4,9 +4,9 @@ Plugin Name: Image Indexer
 Description: Scans the wp-content/uploads folder and imports unindexed images into the WordPress Media Library, using the year and month folders as the upload date.
 Version: 1.0
 Author: alfi4000
-Author URL: https://github.com/alfi4000
-Plugin URL: https://github.com/alfi4000/simple-wordpress-plugins/blob/main/image-indexer.php
-Plugin Home Page URL: https://github.com/alfi4000/simple-wordpress-plugins
+Author URI: https://github.com/alfi4000
+Plugin URI: https://github.com/alfi4000/simple-wordpress-plugins/blob/main/image-indexer.php
+Plugin Home Page URI: https://github.com/alfi4000/simple-wordpress-plugins
 */
 
 function import_server_images() {

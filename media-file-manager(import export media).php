@@ -2,7 +2,7 @@
 /*
 Plugin Name: Media Manager (Import Export)
 Description: Combines Media Exporter and Importer into a single plugin with tabs and a modern design.
-Version: 1.4.0
+Version: 1.6.0
 Author: alfi4000
 Author URI: https://github.com/alfi4000
 Plugin URI: https://github.com/alfi4000/simple-wordpress-plugins/blob/main/media-file-manager(import export media).php
@@ -30,39 +30,30 @@ function mm_add_admin_menu() {
 }
 add_action('admin_menu', 'mm_add_admin_menu');
 
-// Enqueue scripts
-function mm_enqueue_scripts($hook) {
-    if ('toplevel_page_media-manager' !== $hook) {
-        return;
-    }
-    wp_enqueue_script('mm-admin-script', plugin_dir_url(__FILE__) . 'mm-admin.js', array('jquery'), null, true);
-    wp_localize_script('mm-admin-script', 'mm_ajax', array('ajax_url' => admin_url('admin-ajax.php')));
-}
-add_action('admin_enqueue_scripts', 'mm_enqueue_scripts');
-
 // Admin page content
 function mm_admin_page() {
-    $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'welcome';
+    $active_tab = isset($_POST['active_tab']) ? sanitize_text_field($_POST['active_tab']) : '#welcome';
     ?>
     <div class="wrap">
         <h1>Media Manager</h1>
         <div class="nav-tab-wrapper">
-            <a href="?page=media-manager&tab=welcome" class="nav-tab <?php echo $active_tab == 'welcome' ? 'nav-tab-active' : ''; ?>">Welcome</a>
-            <a href="?page=media-manager&tab=importer" class="nav-tab <?php echo $active_tab == 'importer' ? 'nav-tab-active' : ''; ?>">Importer</a>
-            <a href="?page=media-manager&tab=exporter" class="nav-tab <?php echo $active_tab == 'exporter' ? 'nav-tab-active' : ''; ?>">Exporter</a>
-            <a href="?page=media-manager&tab=json-files" class="nav-tab <?php echo $active_tab == 'json-files' ? 'nav-tab-active' : ''; ?>">JSON Files</a>
-            <a href="?page=media-manager&tab=credits" class="nav-tab <?php echo $active_tab == 'credits' ? 'nav-tab-active' : ''; ?>">Credits</a>
+            <a href="#welcome" class="nav-tab <?php echo $active_tab === '#welcome' ? 'nav-tab-active' : ''; ?>">Welcome</a>
+            <a href="#importer" class="nav-tab <?php echo $active_tab === '#importer' ? 'nav-tab-active' : ''; ?>">Importer</a>
+            <a href="#exporter" class="nav-tab <?php echo $active_tab === '#exporter' ? 'nav-tab-active' : ''; ?>">Exporter</a>
+            <a href="#json-files" class="nav-tab <?php echo $active_tab === '#json-files' ? 'nav-tab-active' : ''; ?>">JSON Files</a>
+            <a href="#credits" class="nav-tab <?php echo $active_tab === '#credits' ? 'nav-tab-active' : ''; ?>">Credits</a>
         </div>
 
-        <div id="welcome" class="tab-content <?php echo $active_tab == 'welcome' ? 'tab-content-active' : ''; ?>">
+        <div id="welcome" class="tab-content <?php echo $active_tab === '#welcome' ? 'tab-content-active' : ''; ?>">
             <h2>Welcome to Media Manager</h2>
             <p>This plugin allows you to import and export media files with ease. You can manage your media files, keep your media library organized, and ensure that your media files are always up-to-date.</p>
             <p>Use the tabs above to navigate through the different functionalities of the plugin.</p>
         </div>
 
-        <div id="importer" class="tab-content <?php echo $active_tab == 'importer' ? 'tab-content-active' : ''; ?>">
+        <div id="importer" class="tab-content <?php echo $active_tab === '#importer' ? 'tab-content-active' : ''; ?>">
             <h2>Media Importer</h2>
-            <form id="import-form" method="post" enctype="multipart/form-data">
+            <form method="post" enctype="multipart/form-data">
+                <input type="hidden" name="active_tab" id="active_tab" value="#importer">
                 <input type="file" name="import_file" accept=".json">
                 <input type="submit" name="list_media" class="button button-primary" value="List Media for Import">
             </form>
@@ -75,10 +66,11 @@ function mm_admin_page() {
             ?>
         </div>
 
-        <div id="exporter" class="tab-content <?php echo $active_tab == 'exporter' ? 'tab-content-active' : ''; ?>">
+        <div id="exporter" class="tab-content <?php echo $active_tab === '#exporter' ? 'tab-content-active' : ''; ?>">
             <h2>Media Exporter</h2>
             <p>Click the button below to export media files information as a JSON file.</p>
-            <form id="export-form" method="post">
+            <form method="post">
+                <input type="hidden" name="active_tab" id="active_tab" value="#exporter">
                 <input type="submit" name="export_media" class="button button-primary" value="Export Media">
             </form>
             <?php
@@ -88,30 +80,61 @@ function mm_admin_page() {
             ?>
         </div>
 
-        <div id="json-files" class="tab-content <?php echo $active_tab == 'json-files' ? 'tab-content-active' : ''; ?>">
+        <div id="json-files" class="tab-content <?php echo $active_tab === '#json-files' ? 'tab-content-active' : ''; ?>">
             <h2>JSON Files</h2>
             <p>List of created JSON files:</p>
             <?php me_list_json_files(); ?>
         </div>
 
-        <div id="credits" class="tab-content <?php echo $active_tab == 'credits' ? 'tab-content-active' : ''; ?>">
+        <div id="credits" class="tab-content <?php echo $active_tab === '#credits' ? 'tab-content-active' : ''; ?>">
             <h2>Credits</h2>
             <p>This plugin was developed by <a href="https://github.com/alfi4000" target="_blank">alfi4000</a>.</p>
             <p>For more information, visit the <a href="https://github.com/alfi4000/simple-wordpress-plugins" target="_blank">plugin home page</a>.</p>
         </div>
     </div>
 
-    <div id="edit-popup" class="edit-popup">
-        <div class="edit-popup-content">
-            <span class="close-btn">&times;</span>
-            <h2>Edit JSON File</h2>
-            <form id="edit-form" method="post" enctype="multipart/form-data">
-                <input type="hidden" name="edit_file_path" id="edit_file_path">
-                <textarea name="edit_file_content" id="edit_file_content" rows="20" cols="80"></textarea>
-                <input type="submit" name="save_edit_file" class="button button-primary" value="Save">
-            </form>
-        </div>
-    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const tabs = document.querySelectorAll('.nav-tab');
+            const contents = document.querySelectorAll('.tab-content');
+
+            // Activate the tab based on URL hash
+            const hash = '<?php echo esc_js($active_tab); ?>' || '#welcome';
+            const activeTab = document.querySelector(`.nav-tab[href="${hash}"]`);
+            const activeContent = document.querySelector(hash);
+
+            if (activeTab && activeContent) {
+                tabs.forEach(t => t.classList.remove('nav-tab-active'));
+                contents.forEach(c => c.classList.remove('tab-content-active'));
+                activeTab.classList.add('nav-tab-active');
+                activeContent.classList.add('tab-content-active');
+            }
+
+            // Handle tab click
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const targetHash = this.getAttribute('href');
+
+                    tabs.forEach(t => t.classList.remove('nav-tab-active'));
+                    contents.forEach(c => c.classList.remove('tab-content-active'));
+                    this.classList.add('nav-tab-active');
+                    document.querySelector(targetHash).classList.add('tab-content-active');
+
+                    // Update URL hash
+                    history.replaceState(null, null, targetHash);
+                });
+            });
+
+            // Update hidden field on form submission
+            document.querySelectorAll('form').forEach(form => {
+                form.addEventListener('submit', function() {
+                    const activeTab = document.querySelector('.nav-tab-active').getAttribute('href');
+                    form.querySelector('#active_tab').value = activeTab;
+                });
+            });
+        });
+    </script>
 
     <style>
         .nav-tab-wrapper {
@@ -157,52 +180,6 @@ function mm_admin_page() {
             padding: 5px 10px;
             cursor: pointer;
         }
-        .edit-button {
-            background-color: #0073aa;
-            color: #fff;
-            border: none;
-            padding: 5px 10px;
-            cursor: pointer;
-            margin-left: 10px;
-        }
-        .edit-popup {
-            display: none;
-            position: fixed;
-            z-index: 1;
-            left: 10%; /* Adjusted to move the popup to the right */
-            top: 0;
-            width: 80%; /* Adjusted to fit within the screen */
-            height: 100%;
-            overflow: auto;
-            background-color: rgb(0,0,0);
-            background-color: rgba(0,0,0,0.4);
-        }
-        .edit-popup-content {
-            background-color: #fefefe;
-            margin: 5% auto;
-            padding: 20px;
-            border: 1px solid #888;
-            width: 90%;
-        }
-        .close-btn {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-        }
-        .close-btn:hover,
-        .close-btn:focus {
-            color: black;
-            text-decoration: none;
-            cursor: pointer;
-        }
-        .updated {
-            background-color: #dff2bf;
-            color: #444;
-            border: 1px solid #c6ef8e;
-            padding: 10px;
-            margin: 10px 0;
-        }
     </style>
     <?php
 }
@@ -216,6 +193,7 @@ function mi_handle_list_media() {
         if (json_last_error() === JSON_ERROR_NONE) {
             ?>
             <form method="post" enctype="multipart/form-data">
+                <input type="hidden" name="active_tab" id="active_tab" value="#importer">
                 <?php
                 foreach ($media_files as $media) {
                     ?>
@@ -284,25 +262,6 @@ function mi_handle_import_media() {
         echo '<div class="error"><p>File upload failed. Please check the uploaded files and try again.</p></div>';
     }
 }
-
-// Handle editing JSON file
-function mm_handle_save_edit_file() {
-    check_ajax_referer('mm_save_edit_file');
-    if (isset($_POST['edit_file_path']) && isset($_POST['edit_file_content'])) {
-        $file_path = sanitize_text_field($_POST['edit_file_path']);
-        $file_content = sanitize_textarea_field($_POST['edit_file_content']);
-
-        if (file_exists($file_path)) {
-            file_put_contents($file_path, $file_content);
-            wp_send_json_success('File updated successfully!');
-        } else {
-            wp_send_json_error('File not found.');
-        }
-    } else {
-        wp_send_json_error('Invalid request.');
-    }
-}
-add_action('wp_ajax_mm_save_edit_file', 'mm_handle_save_edit_file');
 
 // Helper function to insert an attachment into the media library
 function mi_insert_attachment($file_path, $file_name, $post_date, $original_id) {
@@ -411,8 +370,8 @@ function me_list_json_files() {
         $file_name = basename($file_path);
         echo '<div class="json-file-item">';
         echo '<span>' . esc_html($file_name) . '</span>';
-        echo '<button class="edit-button" data-file-path="' . esc_attr($file_path) . '">Edit</button>';
         echo '<form method="post" style="display:inline;">';
+        echo '<input type="hidden" name="active_tab" id="active_tab" value="#json-files">';
         echo '<input type="hidden" name="delete_file" value="' . esc_attr($file_path) . '">';
         echo '<button type="submit" name="delete_json_file">Delete</button>';
         echo '</form>';
@@ -422,114 +381,12 @@ function me_list_json_files() {
 }
 
 // Handle deleting JSON files
-function mm_handle_delete_json_file() {
-    check_ajax_referer('mm_delete_json_file');
-    if (isset($_POST['delete_file'])) {
-        $file_path = sanitize_text_field($_POST['delete_file']);
-        if (file_exists($file_path)) {
-            unlink($file_path);
-            wp_send_json_success('File deleted successfully!');
-        } else {
-            wp_send_json_error('File not found.');
-        }
+if (isset($_POST['delete_json_file'])) {
+    $file_path = sanitize_text_field($_POST['delete_file']);
+    if (file_exists($file_path)) {
+        unlink($file_path);
+        echo '<div class="updated"><p>File deleted successfully!</p></div>';
     } else {
-        wp_send_json_error('Invalid request.');
+        echo '<div class="error"><p>File not found.</p></div>';
     }
 }
-add_action('wp_ajax_mm_delete_json_file', 'mm_handle_delete_json_file');
-
-function mm_handle_load_file_content() {
-    if (isset($_POST['file_path'])) {
-        $file_path = sanitize_text_field($_POST['file_path']);
-        if (file_exists($file_path)) {
-            $file_content = file_get_contents($file_path);
-            wp_send_json_success(array('content' => $file_content));
-        } else {
-            wp_send_json_error(array('error' => 'File not found.'));
-        }
-    } else {
-        wp_send_json_error(array('error' => 'Invalid request.'));
-    }
-}
-add_action('wp_ajax_mm_load_file_content', 'mm_handle_load_file_content');
-
-
-
-
-mm-admin.js:
-jQuery(document).ready(function($){
-    // Show the edit popup with the file content
-    $('.edit-button').click(function() {
-        var filePath = $(this).data('file-path');
-        $('#edit_file_path').val(filePath);
-        
-        $.ajax({
-            url: mm_ajax.ajax_url,
-            type: 'POST',
-            data: {
-                action: 'mm_load_file_content',
-                file_path: filePath
-            },
-            success: function(response) {
-                if (response.success) {
-                    $('#edit_file_content').val(response.data.content);
-                    $('#edit-popup').fadeIn();
-                } else {
-                    alert('Could not load file content: ' + response.data.error);
-                }
-            }
-        });
-    });
-
-    // Save the edited file content
-    $('#edit-form').submit(function(e) {
-        e.preventDefault();
-        var filePath = $('#edit_file_path').val();
-        var fileContent = $('#edit_file_content').val();
-
-        $.ajax({
-            url: mm_ajax.ajax_url,
-            type: 'POST',
-            data: {
-                action: 'mm_save_edit_file',
-                file_path: filePath,
-                file_content: fileContent
-            },
-            success: function(response) {
-                if (response.success) {
-                    alert('File updated successfully!');
-                    $('#edit-popup').fadeOut();
-                } else {
-                    alert('Error: ' + response.data.error);
-                }
-            }
-        });
-    });
-
-    // Close the edit popup
-    $('.close-btn').click(function() {
-        $('#edit-popup').fadeOut();
-    });
-
-    // Handle delete button click
-    $(document).on('click', 'button[name="delete_json_file"]', function(event) {
-        event.preventDefault();
-        var deleteFile = $(this).closest('form').find('input[name="delete_file"]').val();
-
-        $.ajax({
-            url: mm_ajax.ajax_url,
-            type: 'POST',
-            data: {
-                action: 'mm_delete_json_file',
-                delete_file: deleteFile
-            },
-            success: function(response) {
-                if (response.success) {
-                    location.reload();
-                } else {
-                    alert(response.data);
-                }
-            }
-        });
-    });
-});

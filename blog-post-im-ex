@@ -1,0 +1,318 @@
+<?php
+/*
+Plugin Name: Blog Post Import Export
+Description: Ein Plugin zum Exportieren und Importieren von Beiträgen mit Metadaten.
+Version: 1.0.2
+Author: alfi4000
+Author URI: https://github.com/alfi4000
+Plugin URI: https://github.com/alfi4000/simple-wordpress-plugins/blob/main/blog-post-im-ex.php
+Plugin Home Page URI: https://github.com/alfi4000/simple-wordpress-plugins
+Requires at least: 5.8
+Tested up to: 6.7.1
+*/
+
+if (!defined('ABSPATH')) {
+    exit; // Exit if accessed directly
+}
+
+// Hook to add admin menu
+add_action('admin_menu', 'cei_add_admin_menu');
+
+// Hook to enqueue styles
+add_action('admin_enqueue_scripts', 'cei_enqueue_styles');
+
+function cei_add_admin_menu() {
+    add_menu_page(
+        'Custom Export Import',
+        'Custom Export Import',
+        'manage_options',
+        'custom-export-import',
+        'cei_admin_page',
+        'dashicons-admin-tools',
+        6
+    );
+}
+
+function cei_admin_page() {
+    ?>
+    <div class="wrap cei-container">
+        <h1>Custom Export Import</h1>
+        <h2 class="nav-tab-wrapper">
+            <a href="?page=custom-export-import&tab=welcome" class="nav-tab <?php echo (isset($_GET['tab']) && $_GET['tab'] == 'welcome') ? 'nav-tab-active' : ''; ?>">Welcome</a>
+            <a href="?page=custom-export-import&tab=export" class="nav-tab <?php echo (isset($_GET['tab']) && $_GET['tab'] == 'export') ? 'nav-tab-active' : ''; ?>">Export</a>
+            <a href="?page=custom-export-import&tab=import" class="nav-tab <?php echo (isset($_GET['tab']) && $_GET['tab'] == 'import') ? 'nav-tab-active' : ''; ?>">Import</a>
+            <a href="?page=custom-export-import&tab=file" class="nav-tab <?php echo (isset($_GET['tab']) && $_GET['tab'] == 'file') ? 'nav-tab-active' : ''; ?>">File</a>
+            <a href="?page=custom-export-import&tab=credits" class="nav-tab <?php echo (isset($_GET['tab']) && $_GET['tab'] == 'credits') ? 'nav-tab-active' : ''; ?>">Credits</a>
+        </h2>
+        <?php
+        if (isset($_GET['tab'])) {
+            switch ($_GET['tab']) {
+                case 'welcome':
+                    cei_welcome_tab();
+                    break;
+                case 'export':
+                    cei_export_tab();
+                    break;
+                case 'import':
+                    cei_import_tab();
+                    break;
+                case 'file':
+                    cei_file_tab();
+                    break;
+                case 'credits':
+                    cei_credits_tab();
+                    break;
+                default:
+                    cei_welcome_tab();
+                    break;
+            }
+        } else {
+            cei_welcome_tab();
+        }
+        ?>
+    </div>
+    <?php
+}
+
+function cei_welcome_tab() {
+    echo '<h2>Willkommen zum Custom Export Import Plugin</h2>';
+    echo '<p>Dieses Plugin ermöglicht das Exportieren und Importieren von Beiträgen mit Metadaten.</p>';
+}
+
+function cei_export_tab() {
+    if (isset($_POST['cei_export'])) {
+        cei_handle_export();
+    }
+    ?>
+    <h2>Export</h2>
+    <form method="post">
+        <label>
+            <input type="checkbox" name="cei_export_posts" value="1"> Beiträge
+        </label>
+        <label>
+            <input type="checkbox" name="cei_export_meta" value="1"> Metadaten
+        </label>
+        <label>
+            <input type="checkbox" name="cei_export_categories" value="1"> Kategorien
+        </label>
+        <label>
+            <input type="checkbox" name="cei_export_tags" value="1"> Tags
+        </label>
+        <label>
+            <input type="checkbox" name="cei_export_content" value="1"> Inhalt
+        </label>
+        <label>
+            <input type="checkbox" name="cei_export_date" value="1"> Datum und Uhrzeit
+        </label>
+        <input type="submit" name="cei_export" value="Exportieren">
+    </form>
+    <?php
+}
+
+function cei_handle_export() {
+    $export_data = array();
+
+    if (isset($_POST['cei_export_posts'])) {
+        $posts = get_posts(array('numberposts' => -1));
+        foreach ($posts as $post) {
+            $post_data = array(
+                'ID' => $post->ID,
+                'title' => $post->post_title,
+                'content' => $post->post_content,
+                'date' => $post->post_date,
+            );
+            if (isset($_POST['cei_export_meta'])) {
+                $post_data['meta'] = get_post_meta($post->ID);
+            }
+            if (isset($_POST['cei_export_categories'])) {
+                $post_data['categories'] = wp_get_post_categories($post->ID);
+            }
+            if (isset($_POST['cei_export_tags'])) {
+                $post_data['tags'] = wp_get_post_tags($post->ID);
+            }
+            $export_data[] = $post_data;
+        }
+    }
+
+    $file_name = 'export_' . date('Y-m-d_H-i-s') . '.json';
+    $file_path = WP_CONTENT_DIR . '/uploads/' . $file_name;
+    file_put_contents($file_path, json_encode($export_data));
+
+    $download_url = content_url('/uploads/' . $file_name);
+    echo '<p>Export erfolgreich! <a href="' . $download_url . '" download>Datei herunterladen</a></p>';
+}
+
+function cei_import_tab() {
+    if (isset($_POST['cei_import'])) {
+        cei_handle_import();
+    }
+    ?>
+    <h2>Import</h2>
+    <form method="post" enctype="multipart/form-data">
+        <input type="file" name="cei_import_file">
+        <input type="submit" name="cei_import" value="Importieren">
+    </form>
+    <?php
+}
+
+function cei_handle_import() {
+    if (isset($_FILES['cei_import_file']) && $_FILES['cei_import_file']['error'] == 0) {
+        $file_path = WP_CONTENT_DIR . '/uploads/' . $_FILES['cei_import_file']['name'];
+        move_uploaded_file($_FILES['cei_import_file']['tmp_name'], $file_path);
+
+        $import_data = json_decode(file_get_contents($file_path), true);
+
+        foreach ($import_data as $post_data) {
+            $post_id = wp_insert_post(array(
+                'post_title' => $post_data['title'],
+                'post_content' => $post_data['content'],
+                'post_date' => $post_data['date'],
+            ));
+
+            if (isset($post_data['meta'])) {
+                foreach ($post_data['meta'] as $key => $value) {
+                    update_post_meta($post_id, $key, $value[0]);
+                }
+            }
+
+            if (isset($post_data['categories'])) {
+                wp_set_post_categories($post_id, $post_data['categories']);
+            }
+
+            if (isset($post_data['tags'])) {
+                $tag_ids = array();
+                foreach ($post_data['tags'] as $tag) {
+                    $tag_ids[] = $tag->term_id;
+                }
+                wp_set_post_tags($post_id, $tag_ids);
+            }
+        }
+
+        echo '<p>Import erfolgreich!</p>';
+    }
+}
+
+function cei_file_tab() {
+    $files = glob(WP_CONTENT_DIR . '/uploads/export_*.json');
+    ?>
+    <h2>File</h2>
+    <ul>
+        <?php foreach ($files as $file): ?>
+            <li>
+                <?php echo basename($file); ?>
+                <form method="post" style="display:inline;">
+                    <input type="hidden" name="cei_delete_file" value="<?php echo basename($file); ?>">
+                    <input type="submit" value="Löschen">
+                </form>
+            </li>
+        <?php endforeach; ?>
+    </ul>
+    <?php
+}
+
+function cei_credits_tab() {
+    echo '<h2>Credits</h2>';
+    echo '<p>Dieses Plugin wurde von Deinem Namen entwickelt.</p>';
+}
+
+if (isset($_POST['cei_delete_file'])) {
+    $file_path = WP_CONTENT_DIR . '/uploads/' . $_POST['cei_delete_file'];
+    if (file_exists($file_path)) {
+        unlink($file_path);
+        echo '<p>Datei erfolgreich gelöscht!</p>';
+    }
+}
+
+function cei_enqueue_styles() {
+    wp_enqueue_style('cei-styles', plugin_dir_url(__FILE__) . 'cei-styles.css');
+}
+
+
+
+
+
+
+############  cei-styles.css:  ################
+
+/* cei-styles.css */
+.cei-container {
+    padding: 20px;
+    background-color: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    margin-top: 20px;
+}
+
+.cei-container h2 {
+    margin-top: 0;
+}
+
+.cei-container form {
+    margin-top: 20px;
+}
+
+.cei-container label {
+    display: block;
+    margin-bottom: 10px;
+}
+
+.cei-container input[type="submit"] {
+    background-color: #0073aa;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.cei-container input[type="submit"]:hover {
+    background-color: #005177;
+}
+
+.cei-container .nav-tab-wrapper {
+    margin-bottom: 20px;
+}
+
+.cei-container .nav-tab {
+    background-color: #0073aa;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    margin-right: 10px;
+    cursor: pointer;
+}
+
+.cei-container .nav-tab:hover {
+    background-color: #005177;
+}
+
+.cei-container .nav-tab-active {
+    background-color: #005177;
+}
+
+.cei-container ul {
+    list-style-type: none;
+    padding: 0;
+}
+
+.cei-container ul li {
+    margin-bottom: 10px;
+}
+
+.cei-container ul li form {
+    display: inline;
+}
+
+.cei-container ul li form input[type="submit"] {
+    background-color: #d63638;
+    color: #fff;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.cei-container ul li form input[type="submit"]:hover {
+    background-color: #b32d2e;
+}

@@ -1,11 +1,11 @@
 <?php
 /*
-Plugin Name: Media Importer
+Plugin Name: Media Importer WEBP
 Description: Imports media files with their upload date and time and supports replacing files. Converts non-document files to WebP format.
-Version: 1.1
+Version: 1.2
 Author: alfi4000
 Author URI: https://github.com/alfi4000
-Plugin URI: https://github.com/alfi4000/simple-wordpress-plugins/blob/main/media-importer-webp.php
+Plugin URI: https://github.com/alfi4000/simple-wordpress-plugins/blob/main/media-importer.php
 Plugin Home Page URI: https://github.com/alfi4000/simple-wordpress-plugins
 */
 

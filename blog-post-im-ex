@@ -2,7 +2,7 @@
 /*
 Plugin Name: Blog Post Import Export
 Description: Ein Plugin zum Exportieren und Importieren von Beiträgen mit Metadaten.
-Version: 1.0.2
+Version: 1.0.8
 Author: alfi4000
 Author URI: https://github.com/alfi4000
 Plugin URI: https://github.com/alfi4000/simple-wordpress-plugins/blob/main/blog-post-im-ex.php
@@ -120,6 +120,7 @@ function cei_handle_export() {
                 'title' => $post->post_title,
                 'content' => $post->post_content,
                 'date' => $post->post_date,
+                'status' => $post->post_status, // Export status
             );
             if (isset($_POST['cei_export_meta'])) {
                 $post_data['meta'] = get_post_meta($post->ID);
@@ -146,6 +147,9 @@ function cei_import_tab() {
     if (isset($_POST['cei_import'])) {
         cei_handle_import();
     }
+    if (isset($_POST['cei_import_individual'])) {
+        cei_handle_individual_import();
+    }
     ?>
     <h2>Import</h2>
     <form method="post" enctype="multipart/form-data">
@@ -153,6 +157,32 @@ function cei_import_tab() {
         <input type="submit" name="cei_import" value="Importieren">
     </form>
     <?php
+    if (isset($_FILES['cei_import_file']) && $_FILES['cei_import_file']['error'] == 0) {
+        $file_path = WP_CONTENT_DIR . '/uploads/' . $_FILES['cei_import_file']['name'];
+        if (move_uploaded_file($_FILES['cei_import_file']['tmp_name'], $file_path)) {
+            $import_data = json_decode(file_get_contents($file_path), true);
+
+            echo '<h3>Liste der Beiträge zum Importieren:</h3>';
+            echo '<ul>';
+            foreach ($import_data as $index => $post_data) {
+                echo '<li>';
+                echo '<strong>' . esc_html($post_data['title']) . '</strong>';
+                echo '<form method="post" style="display:inline;">';
+                echo '<input type="hidden" name="cei_import_index" value="' . esc_attr($index) . '">';
+                echo '<input type="hidden" name="cei_import_file_path" value="' . esc_attr($file_path) . '">';
+                echo '<select name="cei_import_status">';
+                echo '<option value="publish">Veröffentlicht</option>';
+                echo '<option value="draft">Entwurf</option>';
+                echo '</select>';
+                echo '<input type="submit" name="cei_import_individual" value="Importieren">';
+                echo '</form>';
+                echo '</li>';
+            }
+            echo '</ul>';
+        } else {
+            echo '<p>Fehler beim Hochladen der Datei.</p>';
+        }
+    }
 }
 
 function cei_handle_import() {
@@ -167,6 +197,7 @@ function cei_handle_import() {
                 'post_title' => $post_data['title'],
                 'post_content' => $post_data['content'],
                 'post_date' => $post_data['date'],
+                'post_status' => $post_data['status'], // Import status
             ));
 
             if (isset($post_data['meta'])) {
@@ -189,6 +220,46 @@ function cei_handle_import() {
         }
 
         echo '<p>Import erfolgreich!</p>';
+    }
+}
+
+function cei_handle_individual_import() {
+    if (isset($_POST['cei_import_index']) && isset($_POST['cei_import_file_path'])) {
+        $index = intval($_POST['cei_import_index']);
+        $file_path = sanitize_text_field($_POST['cei_import_file_path']);
+        $import_data = json_decode(file_get_contents($file_path), true);
+
+        if (isset($import_data[$index])) {
+            $post_data = $import_data[$index];
+            $post_id = wp_insert_post(array(
+                'post_title' => $post_data['title'],
+                'post_content' => $post_data['content'],
+                'post_date' => $post_data['date'],
+                'post_status' => sanitize_text_field($_POST['cei_import_status']), // Import status
+            ));
+
+            if (isset($post_data['meta'])) {
+                foreach ($post_data['meta'] as $key => $value) {
+                    update_post_meta($post_id, $key, $value[0]);
+                }
+            }
+
+            if (isset($post_data['categories'])) {
+                wp_set_post_categories($post_id, $post_data['categories']);
+            }
+
+            if (isset($post_data['tags'])) {
+                $tag_ids = array();
+                foreach ($post_data['tags'] as $tag) {
+                    $tag_ids[] = $tag->term_id;
+                }
+                wp_set_post_tags($post_id, $tag_ids);
+            }
+
+            echo '<p>Import erfolgreich!</p>';
+        } else {
+            echo '<p>Fehler beim Importieren des Beitrags.</p>';
+        }
     }
 }
 
@@ -220,12 +291,15 @@ if (isset($_POST['cei_delete_file'])) {
     if (file_exists($file_path)) {
         unlink($file_path);
         echo '<p>Datei erfolgreich gelöscht!</p>';
+    } else {
+        echo '<p>Datei existiert nicht.</p>';
     }
 }
 
 function cei_enqueue_styles() {
     wp_enqueue_style('cei-styles', plugin_dir_url(__FILE__) . 'cei-styles.css');
 }
+
 
 
 
@@ -314,5 +388,11 @@ function cei_enqueue_styles() {
 }
 
 .cei-container ul li form input[type="submit"]:hover {
+    background-color: #b32d2e;
+}
+
+.cei-container ul li form select {
+    margin-right: 10px;
+}
     background-color: #b32d2e;
 }

@@ -1,0 +1,143 @@
+<?php
+/*
+Plugin Name: List Pages Plugin
+Description: A plugin to list all pages with their names and IDs, and bundle them excluding specified IDs.
+Version: 1.1
+Author: Your Name
+*/
+
+// Add a menu item to the WordPress admin dashboard
+function list_pages_menu() {
+    add_menu_page(
+        'List Pages',
+        'List Pages',
+        'manage_options',
+        'list-pages',
+        'list_pages_page',
+        'dashicons-admin-page',
+        6
+    );
+}
+add_action('admin_menu', 'list_pages_menu');
+
+// Display the list of pages and the bundling feature
+function list_pages_page() {
+    ?>
+    <div class="wrap">
+        <h1>List of All Pages</h1>
+        <table class="widefat fixed" cellspacing="0">
+            <thead>
+                <tr>
+                    <th id="columnname" class="manage-column column-columnname" scope="col">Page Name</th>
+                    <th id="columnname" class="manage-column column-columnname" scope="col">Page ID</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php
+                $pages = get_pages();
+                foreach ($pages as $page) {
+                    echo '<tr>';
+                    echo '<td class="column-columnname">' . esc_html($page->post_title) . '</td>';
+                    echo '<td class="column-columnname">' . esc_html($page->ID) . '</td>';
+                    echo '</tr>';
+                }
+                ?>
+            </tbody>
+        </table>
+
+        <h2>Bundle Page IDs</h2>
+        <form id="bundle-form" method="post">
+            <label for="exclude-ids">Enter IDs to exclude (comma-separated):</label>
+            <input type="text" id="exclude-ids" name="exclude_ids" placeholder="e.g., 123,34,1234">
+            <input type="submit" name="bundle_pages" value="Bundle">
+        </form>
+
+        <?php
+        if (isset($_POST['bundle_pages'])) {
+            $exclude_ids = explode(',', sanitize_text_field($_POST['exclude_ids']));
+            $exclude_ids = array_map('intval', $exclude_ids);
+            $pages = get_pages(array('exclude' => $exclude_ids));
+            $bundled_ids = array_map(function($page) {
+                return $page->ID;
+            }, $pages);
+            echo '<h3>Bundled Page IDs:</h3>';
+            echo '<p>' . implode(',', $bundled_ids) . '</p>';
+        }
+        ?>
+    </div>
+    <?php
+}
+
+// Enqueue styles for the admin page
+function list_pages_admin_styles() {
+    wp_enqueue_style('list-pages-admin-styles', plugin_dir_url(__FILE__) . 'admin-styles.css');
+}
+add_action('admin_enqueue_scripts', 'list_pages_admin_styles');
+
+
+
+
+
+########  admin-styles.css  ########
+
+
+
+.widefat {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.widefat th, .widefat td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+.widefat th {
+    background-color: #f2f2f2;
+}
+
+.widefat tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+.widefat tr:hover {
+    background-color: #ddd;
+}
+
+#bundle-form {
+    margin-top: 20px;
+}
+
+#bundle-form label {
+    display: block;
+    margin-bottom: 10px;
+}
+
+#bundle-form input[type="text"] {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 10px;
+}
+
+#bundle-form input[type="submit"] {
+    padding: 10px 20px;
+    background-color: #0073aa;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+}
+
+#bundle-form input[type="submit"]:hover {
+    background-color: #005177;
+}
+
+h3 {
+    margin-top: 20px;
+}
+
+p {
+    background-color: #f9f9f9;
+    padding: 10px;
+    border: 1px solid #ddd;
+}

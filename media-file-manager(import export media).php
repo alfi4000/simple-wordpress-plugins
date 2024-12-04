@@ -2,7 +2,7 @@
 /*
 Plugin Name: Media Manager (Import Export)
 Description: Combines Media Exporter and Importer into a single plugin with tabs and a modern design.
-Version: 1.3.2
+Version: 1.6.2
 Author: alfi4000
 Author URI: https://github.com/alfi4000
 Plugin URI: https://github.com/alfi4000/simple-wordpress-plugins/blob/main/media-file-manager(import export media).php
